@@ -2,7 +2,6 @@
 using System.IO;
 using System.Management.Automation;
 using System.Text;
-using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 using Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration;
 
@@ -28,12 +27,6 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
         [Parameter(Mandatory = true)]
         public string AssemblyName { get; set; }
 
-        /// <summary>
-        /// <para type="description">The version of assembly for which mapping file has to be created.</para>
-        /// </summary>
-        [Parameter(Mandatory = false)]
-        public string AssemblyVersion { get; set; }
-
         [Parameter(Mandatory = true)]
         public string MappingFile { get; set; }
 
@@ -50,9 +43,8 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
                 PluginRegistrationHelper pluginRegistrationHelper = new PluginRegistrationHelper(OrganizationService, context, WriteVerbose, WriteWarning);
                 WriteVerbose("PluginRegistrationHelper intiated");
                 WriteVerbose($"Assembly Name: {AssemblyName}");
-                WriteVerbose($"Assembly Version: {AssemblyVersion}");
                 WriteVerbose($"Mapping Path: {MappingFile}");
-                var assembly = pluginRegistrationHelper.GetAssemblyRegistration(AssemblyName, AssemblyVersion);
+                var assembly = pluginRegistrationHelper.GetAssemblyRegistration(AssemblyName);
                 pluginRegistrationHelper.SerializerObjectToFile(MappingFile, assembly);
             }
 

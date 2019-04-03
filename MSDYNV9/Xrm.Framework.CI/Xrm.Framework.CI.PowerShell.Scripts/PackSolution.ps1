@@ -8,15 +8,12 @@ param(
 [bool]$UpdateVersion,
 [string]$RequiredVersion,
 [bool]$IncludeVersionInSolutionFile,
-[bool]$IncrementReleaseVersion,
 [string]$OutputPath,
 [bool]$TreatPackWarningsAsErrors,
-[string]$CoreToolsPath,
-[string]$LogsDirectory
+[string]$CoreToolsPath
 )
 
 $ErrorActionPreference = "Stop"
-$InformationPreference = "Continue"
 
 Write-Verbose 'Entering PackSolution.ps1' -Verbose
 
@@ -27,11 +24,9 @@ Write-Verbose "PackageType = $PackageType"
 Write-Verbose "UpdateVersion = $UpdateVersion"
 Write-Verbose "RequiredVersion = $RequiredVersion"
 Write-Verbose "IncludeVersionInSolutionFile = $IncludeVersionInSolutionFile"
-Write-Verbose "IncrementReleaseVersion = $IncrementReleaseVersion"
 Write-Verbose "OutputPath = $OutputPath"
 Write-Verbose "TreatPackWarningsAsErrors = $TreatPackWarningsAsErrors"
 Write-Verbose "CoreToolsPath = $CoreToolsPath"
-Write-Verbose "LogsDirectory = $LogsDirectory"
 
 #Script Location
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
@@ -43,35 +38,78 @@ Write-Verbose "Importing CIToolkit: $xrmCIToolkit"
 Import-Module $xrmCIToolkit
 Write-Verbose "Imported CIToolkit"
 
+if ($UpdateVersion)
+{       
+    Write-Verbose "Setting Solution Version in File to: $RequiredVersion"
+
+	$SolutionXmlFile = "$UnpackedFilesFolder\Other\Solution.xml"
+
+	Write-Verbose "Setting $SolutionXmlFile to IsReadyOnly = false"
+
+	Set-ItemProperty $SolutionXmlFile -name IsReadOnly -value $false
+
+	Write-Verbose "Setting Solution Version in File to: $RequiredVersion"
+
+    Set-XrmSolutionVersionInFolder -SolutionFilesFolderPath $UnpackedFilesFolder -Version $RequiredVersion
+
+    Write-Host "$SolutionXmlFile updated with $RequiredVersion"
+}
+
+$solutionInfo = Get-XrmSolutionInfoFromFolder -SolutionFilesFolderPath $UnpackedFilesFolder
+$packSolutionName = $solutionInfo.UniqueName
+$packSolutionVersion = $solutionInfo.Version
+    
+Write-Host "Packing Solution = " $packSolutionName ", Version = " $packSolutionVersion
+
+$packStringBuilder = $packSolutionName
+if ($IncludeVersionInSolutionFile)
+{
+    $packStringBuilder = $packStringBuilder + "_" + $packSolutionVersion.replace(".", "_")
+}
+$packManagedFile = $packStringBuilder + "_managed.zip"
+$packUnmanagedFile = $packStringBuilder + ".zip"
+
+$targetFile = $OutputPath + "\" + $packUnmanagedFile
+
 $SolutionPackagerFile = $scriptPath + "\SolutionPackager.exe"
+
 if ($CoreToolsPath)
 {
 	$SolutionPackagerFile = $CoreToolsPath + "\SolutionPackager.exe"
 }
 
-$PackParams = @{
-	SolutionPackagerPath = $SolutionPackagerFile
-	PackageType = $PackageType
-	Folder = $UnpackedFilesFolder
-	IncludeVersionInName = $IncludeVersionInSolutionFile
-	IncrementReleaseVersion = $IncrementReleaseVersion
-	TreatWarningsAsErrors = $TreatPackWarningsAsErrors
-	OutputFolder = $OutputPath
-}
-
 if ($MappingFile)
 {
-	$PackParams.MappingFile = $MappingFile
+    $packOutput = & "$SolutionPackagerFile" /action:Pack /zipfile:"$targetFile" /folder:"$UnpackedFilesFolder" /packagetype:$PackageType /map:"$MappingFile"
 }
-if ($LogsDirectory)
+else
 {
-	$PackParams.LogsDirectory = $LogsDirectory
-}
-if ($RequiredVersion)
-{
-	$PackParams.Version = $RequiredVersion
+    $packOutput = & "$SolutionPackagerFile" /action:Pack /zipfile:"$targetFile" /folder:"$UnpackedFilesFolder" /packagetype:$PackageType
 }
 
-Compress-XrmSolution @PackParams
+Write-Output $packOutput
+
+if ($lastexitcode -ne 0)
+{
+	throw "Solution Pack operation failed with exit code: $lastexitcode"
+}
+else
+{
+	if (($packOutput -ne $null) -and ($packOutput -like "*warnings encountered*"))
+	{
+		if ($TreatPackWarningsAsErrors)
+		{
+			throw "Solution Packager encountered warnings. Check the output."
+		}
+		else
+		{
+			Write-Warning "Solution Packager encountered warnings. Check the output."
+		}
+	}
+	else
+	{
+		Write-Host "Solution Pack Completed Successfully"
+	}
+}
 
 Write-Verbose 'Leaving PackSolution.ps1'

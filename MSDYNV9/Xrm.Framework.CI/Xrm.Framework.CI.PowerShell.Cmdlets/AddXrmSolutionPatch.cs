@@ -5,7 +5,6 @@ using System.Management.Automation;
 using System.Text;
 using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
-using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 
 namespace Xrm.Framework.CI.PowerShell.Cmdlets
@@ -26,7 +25,7 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
         /// <summary>
         /// <para type="description">The display name of the cloned patched solution.</para>
         /// </summary>
-        [Parameter(Mandatory = false)]
+        [Parameter(Mandatory = true)]
         public string DisplayName { get; set; }
 
         /// <summary>
@@ -50,17 +49,14 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
             base.ProcessRecord();
 
             base.WriteVerbose("Executing CloneAsPatchRequest");
-
             using (var context = new CIContext(OrganizationService))
             {
-                base.WriteVerbose("VersionNumber not supplied. Generating default VersionNumber");
-
                 if (string.IsNullOrEmpty(VersionNumber))
                 {
                     var solution = (from sol in context.SolutionSet
                                     where sol.UniqueName==ParentSolutionUniqueName || sol.UniqueName.StartsWith(ParentSolutionUniqueName + "_Patch")
                                     orderby sol.Version descending
-                                    select new Solution { Version = sol.Version, FriendlyName = sol.FriendlyName }).FirstOrDefault();
+                                    select new Solution { Version = sol.Version }).FirstOrDefault();
                     if (solution == null || string.IsNullOrEmpty(solution.Version))
                     {
                         throw new Exception(string.Format("Parent solution with unique name {0} not found.", ParentSolutionUniqueName));
@@ -68,24 +64,8 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
 
                     string[] versions = solution.Version.Split('.');
                     char dot = '.';
-                    VersionNumber = string.Concat(versions[0], dot, versions[1], dot, Convert.ToInt32(versions[2]) + 1, dot, 0);
-                    base.WriteVerbose(string.Format("New VersionNumber: {0}", VersionNumber));
-                }
-
-                if (string.IsNullOrEmpty(DisplayName))
-                {
-                    var solution = (from sol in context.SolutionSet
-                                    where sol.UniqueName == ParentSolutionUniqueName
-                                    select new Solution { FriendlyName = sol.FriendlyName }).FirstOrDefault();
-                    base.WriteVerbose((solution == null).ToString());
-                    base.WriteVerbose(solution.FriendlyName);
-
-                    if (solution == null || string.IsNullOrEmpty(solution.FriendlyName))
-                    {
-                        throw new Exception(string.Format("Parent solution with unique name {0} not found.", ParentSolutionUniqueName));
-                    }
-
-                    DisplayName = solution.FriendlyName;
+                    VersionNumber = string.Concat(versions[0], dot, versions[1], dot, Convert.ToInt32(versions[2]) + 1, dot, versions[3]);
+                    base.WriteVerbose(string.Format("New version number {0}", VersionNumber));
                 }
 
                 var cloneAsPatch = new CloneAsPatchRequest
@@ -95,23 +75,7 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
                     VersionNumber = VersionNumber,
                 };
 
-                CloneAsPatchResponse response  = OrganizationService.Execute(cloneAsPatch) as CloneAsPatchResponse;
-
-                base.WriteVerbose(string.Format("Patch solution created with Id {0}", response.SolutionId));
-
-                base.WriteVerbose("Retrieving Patch Name");
-
-                var patch = (from sol in context.SolutionSet
-                                where sol.Id == response.SolutionId
-                                select new Solution { UniqueName = sol.UniqueName }).FirstOrDefault();
-                if (patch == null || string.IsNullOrEmpty(patch.UniqueName))
-                {
-                    throw new Exception(string.Format("Solution with Id {0} not found.", response.SolutionId));
-                }
-
-                base.WriteVerbose(string.Format("Patch solution name: {0}", patch.UniqueName));
-
-                base.WriteObject(patch.UniqueName);
+                OrganizationService.Execute(cloneAsPatch);
             }
 
             base.WriteVerbose("Completed CloneAsPatchRequest");

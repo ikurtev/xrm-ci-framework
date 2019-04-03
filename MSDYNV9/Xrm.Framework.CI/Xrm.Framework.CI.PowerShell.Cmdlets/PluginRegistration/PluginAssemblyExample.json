@@ -23,9 +23,7 @@
           "Mode": "Synchronous",
           "PrimaryEntityName": "account",
           "Rank": 1,
-          "AsyncAutoDelete": false,
           "Stage": "Postoperation",
-          "StateCode": "Enabled",
           "SupportedDeployment": "ServerOnly",
           "Images": [
             {

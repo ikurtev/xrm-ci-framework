@@ -5,7 +5,7 @@ param(
 [string]$CrmConnectionString,
 [string]$EntityName,
 [string]$LookupFieldName,
-[string]$ValueFieldNames,
+[string]$ValueFieldName,
 [string]$ConfigurationRecordsJson
 )
 
@@ -14,9 +14,9 @@ $ErrorActionPreference = "Stop"
 Write-Verbose 'Entering UpdateConfigurationRecords.ps1'
 
 #Parameters
-Write-Verbose "EntityName = $EntityName"
+Write-Verbose "EntityName = $EntityName,"
 Write-Verbose "LookupFieldName = $LookupFieldName"
-Write-Verbose "ValueFieldNames = $ValueFieldNames"
+Write-Verbose "ValueFieldName = $ValueFieldName"
 Write-Verbose "ConfigurationRecordsJson = $ConfigurationRecordsJson"
 
 #Script Location
@@ -34,14 +34,13 @@ $array = ConvertFrom-Json $ConfigurationRecordsJson
 
 Write-Host ("Processing ({0}) records" -f $array.Count)
 
-$valueFields = $ValueFieldNames.Split(",");
-
 #iterate through the configuration items and set secure configuration
 For ($i=0; $i -lt $array.Count; $i++)
 {
 	$lookup = $array[$i][0]
+	$value =  $array[$i][1]
 
-	Write-Host ("Processing record: {0}" -f $array[$i])
+	Write-Host ("Processing record with lookup: {0} - value: {1}" -f $lookup, $value)
 
     $records = Get-XrmEntities -ConnectionString $CrmConnectionString -EntityName $EntityName -Attribute $LookupFieldName -Value $lookup -ConditionOperator 0
 
@@ -49,21 +48,11 @@ For ($i=0; $i -lt $array.Count; $i++)
 	{
 		
         $record = $records[0]
-		$changed = $false
 
-		For ($j=0; $j -lt $valueFields.Count; $j++)
+        if ($record.Attributes[$ValueFieldName] -ne $value)
 		{
-			$value =  $array[$i][$j+1]
-
-			if ($record.Attributes[$valueFields[$j]] -cne $value)
-			{
-				$record.Attributes[$valueFields[$j]] = $value
-				$changed = $true
-			}
-		}
-
-		if ($changed)
-		{
+			$record.Attributes[$ValueFieldName] = $value
+			
 			Set-XrmEntity -ConnectionString $CrmConnectionString -EntityObject $record
 
 			Write-Host ("Record Update Completed for Id: {0}" -f $record.Id)
@@ -77,12 +66,7 @@ For ($i=0; $i -lt $array.Count; $i++)
 	{
 		$record = New-XrmEntity -EntityName $EntityName
 		$record.Attributes["$LookupFieldName"] = $lookup
-
-		For ($j=0; $j -lt $valueFields.Count; $j++)
-		{
-			$value =  $array[$i][$j+1]
-			$record.Attributes[$valueFields[$j]] = $value
-		}
+		$record.Attributes["$ValueFieldName"] = $value
 
 		$recordId = Add-XrmEntity -ConnectionString $CrmConnectionString -EntityObject $record
 

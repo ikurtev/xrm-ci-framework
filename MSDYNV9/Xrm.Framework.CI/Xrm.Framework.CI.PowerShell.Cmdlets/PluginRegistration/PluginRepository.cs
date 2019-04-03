@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Xrm.Sdk;
-using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 
 namespace Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration
@@ -36,16 +34,6 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration
              where steps.EventHandler.Id == parentId && steps.Name == name
              select steps.Id).FirstOrDefault();
 
-        public SdkMessageProcessingStep GetSdkMessageProcessingStepById(Guid id) =>
-            (from steps in context.SdkMessageProcessingStepSet
-             where steps.SdkMessageProcessingStepId == id
-             select steps).SingleOrDefault();
-
-        internal PluginType GetPluginTypeById(Guid objectId) =>
-            (from type in context.PluginTypeSet
-             where type.PluginTypeId == objectId
-             select type).SingleOrDefault();
-
         public Guid GetSdkMessageProcessingStepImageId(Guid parentId, string name, SdkMessageProcessingStepImage_ImageType? imageType) =>
             (from a in context.SdkMessageProcessingStepImageSet
              where a.SdkMessageProcessingStepId.Id == parentId && a.ImageTypeEnum == imageType && a.EntityAlias == name
@@ -63,19 +51,11 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration
 
         public Workflow GetWorkflowById(Guid id) => context.CreateQuery<Workflow>().Single(x => x.Id == id);
 
-        public Assembly GetAssemblyRegistration(string assemblyName, string version)
+        public Assembly GetAssemblyRegistration(string assemblyName)
         {
             var lastIndex = assemblyName.LastIndexOf(".dll");
             string name = lastIndex > 0 ? assemblyName.Remove(lastIndex, 4) : assemblyName;
-            PluginAssembly pluginAssembly = null;
-            if (string.IsNullOrEmpty(version))
-            {
-                pluginAssembly = context.PluginAssemblySet.SingleOrDefault(x => x.Name == name);
-            }
-            else
-            {
-                pluginAssembly = context.PluginAssemblySet.SingleOrDefault(x => x.Name == name && x.Version == version);
-            }
+            var pluginAssembly = context.PluginAssemblySet.SingleOrDefault(x => x.Name == name);
             if (pluginAssembly == null)
             {
                 return null;
@@ -96,50 +76,26 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration
             var pluginTypes = (from plugins in context.PluginTypeSet
                                join steps in context.SdkMessageProcessingStepSet on plugins.PluginTypeId equals steps.EventHandler.Id
                                join message in context.SdkMessageSet on steps.SdkMessageId.Id equals message.SdkMessageId
+                               join filters in context.SdkMessageFilterSet on steps.SdkMessageFilterId.Id equals filters.Id
                                where plugins.PluginAssemblyId.Id == pluginAssembly.Id && plugins.IsWorkflowActivity == false
-                               select MapPluginObject( 
-                                   steps, message, GetMessageFilter( context.SdkMessageFilterSet, steps.SdkMessageFilterId ), pluginStepImages, pluginAssemblyObject, plugins )
-                              ).ToList();
-            var typesHasSteps = new HashSet<string>(pluginAssemblyObject.PluginTypes.Select(t => t.Name));
-            var allPluginType = (from plugins in context.PluginTypeSet
-                                 where plugins.PluginAssemblyId.Id == pluginAssembly.Id && plugins.IsWorkflowActivity == false //&& !typesHasSteps.Contains(plugins.Name)
-                                 select plugins).ToList();
-            var pluginTypesWithNoSteps = (from plugins in allPluginType
-                                          where !typesHasSteps.Contains(plugins.Name)
-                                          select MapPluginObject(null, null, null, null, pluginAssemblyObject, plugins)).ToList();
+                               select MapPluginObject(steps, message, filters, pluginStepImages, pluginAssemblyObject, plugins)).ToList();
 
             return pluginAssemblyObject;
         }
 
-		private SdkMessageFilter GetMessageFilter( IQueryable<SdkMessageFilter> sdkMessageFilterSet, EntityReference sdkMessageFilterId )
-		{
-			if( sdkMessageFilterId == null )
-			{
-				return null;
-			}
-			return sdkMessageFilterSet.FirstOrDefault( f => f.Id == sdkMessageFilterId.Id );
-		}
-
-		public Guid GetServiceEndpointId(string name) =>
+        public Guid GetServiceEndpointId(string name) =>
             (from a in context.ServiceEndpointSet
              where a.Name == name
              select a.Id).FirstOrDefault();
-        public List<ServiceEndpt> GetServiceEndpoints(Guid solutionId, string endpointName)
+        public List<ServiceEndpt> GetServiceEndpoints(Guid solutionId)
         {
             var webHookList = new List<ServiceEndpt>();
-            var resuts = (from serviceEndpoint in context.ServiceEndpointSet
-                          join steps in context.SdkMessageProcessingStepSet on serviceEndpoint.ServiceEndpointId equals steps.EventHandler.Id
-                          join message in context.SdkMessageSet on steps.SdkMessageId.Id equals message.SdkMessageId
-                          join filters in context.SdkMessageFilterSet on steps.SdkMessageFilterId.Id equals filters.Id
-                          select MapWebHookObject(webHookList, serviceEndpoint, steps, message, filters)).ToList(); ;
-            
-            if (!string.IsNullOrEmpty(endpointName))
-            {
-                webHookList = (from webHook in webHookList
-                               where webHook.Name.Equals(endpointName)
-                               select webHook).ToList();
-            }
-
+            var pluginAssembliesTypes = (from serviceEndpoint in context.ServiceEndpointSet
+                                         join steps in context.SdkMessageProcessingStepSet on serviceEndpoint.ServiceEndpointId equals steps.EventHandler.Id
+                                         join message in context.SdkMessageSet on steps.SdkMessageId.Id equals message.SdkMessageId
+                                         join filters in context.SdkMessageFilterSet on steps.SdkMessageFilterId.Id equals filters.Id
+                                         // where serviceEndpoint.SolutionId == solutionId
+                                         select MapWebHookObject(webHookList, serviceEndpoint, steps, message, filters)).ToList();
             return webHookList;
         }
 
@@ -176,8 +132,7 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration
             Id = pluginAssembly.PluginAssemblyId,
             Name = pluginAssembly.Name + ".dll",
             IsolationMode = pluginAssembly.IsolationModeEnum,
-            SourceType = pluginAssembly.SourceTypeEnum,
-            Version = pluginAssembly.Version
+            SourceType = pluginAssembly.SourceTypeEnum
         };
 
         private static bool MapPluginObject(SdkMessageProcessingStep pluginStep
@@ -241,14 +196,12 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration
             Description = pluginStep.Description,
             FilteringAttributes = pluginStep.FilteringAttributes,
             ImpersonatingUserFullname = pluginStep.ImpersonatingUserId?.Name ?? string.Empty,
-            MessageName = sdkMessage?.Name,
+            MessageName = sdkMessage?.CategoryName,
             Mode = pluginStep.ModeEnum,
-            PrimaryEntityName = filter?.PrimaryObjectTypeCode,
+            PrimaryEntityName = filter.PrimaryObjectTypeCode,
             Rank = pluginStep.Rank,
             Stage = pluginStep.StageEnum,
-            AsyncAutoDelete = pluginStep.AsyncAutoDelete,
             SupportedDeployment = pluginStep.SupportedDeploymentEnum,
-            StateCode = pluginStep.StateCode,
             Images = new List<Image>()
         };
 

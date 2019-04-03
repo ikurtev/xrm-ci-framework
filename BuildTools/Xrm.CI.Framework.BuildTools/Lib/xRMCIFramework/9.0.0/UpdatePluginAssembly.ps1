@@ -1,22 +1,20 @@
 #
-# GetPluginRegistration.ps1
+# UpdatePluginAssembly.ps1
 #
 
 param(
 	[string]$CrmConnectionString,
-	[string]$EndpointName,
-	[string]$MappingFile,
-	[int]$Timeout=360
+	[string]$AssemblyPath,
+	[int]$Timeout
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Verbose 'Entering GetServiceEndpointRegistration.ps1' -Verbose
+Write-Verbose 'Entering UpdatePluginAssembly.ps1' -Verbose
 
 #Parameters
 Write-Verbose "CrmConnectionString = $CrmConnectionString"
-Write-Verbose "EndpointName = $EndpointName"
-Write-Verbose "MappingFile = $MappingFile"
+Write-Verbose "AssemblyPath = $AssemblyPath"
 Write-Verbose "Timeout = $Timeout"
 
 #Script Location
@@ -29,6 +27,10 @@ Write-Verbose "Importing CIToolkit: $xrmCIToolkit"
 Import-Module $xrmCIToolkit
 Write-Verbose "Imported CIToolkit"
 
-Get-XrmServiceEndpointRegistration -EndpointName $EndpointName -MappingFile $MappingFile -ConnectionString $CrmConnectionString -Timeout $Timeout -Verbose
+Write-Host "Updating Plugin Assembly: $AssemblyPath"
 
-Write-Verbose 'Leaving GetServiceEndpointRegistration.ps1' -Verbose
+Set-XrmPluginAssembly -Path $AssemblyPath -ConnectionString $CrmConnectionString -Timeout $Timeout -Verbose
+
+Write-Host "Updated Plugin Assembly"
+
+Write-Verbose 'Leaving UpdatePluginAssembly.ps1' -Verbose

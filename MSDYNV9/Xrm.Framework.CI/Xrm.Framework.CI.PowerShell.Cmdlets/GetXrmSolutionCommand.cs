@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using System.Management.Automation;
-using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 
 namespace Xrm.Framework.CI.PowerShell.Cmdlets

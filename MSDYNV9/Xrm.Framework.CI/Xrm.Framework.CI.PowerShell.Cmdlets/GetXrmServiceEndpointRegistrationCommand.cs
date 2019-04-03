@@ -2,7 +2,6 @@
 using System.IO;
 using System.Management.Automation;
 using System.Text;
-using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 using Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration;
 
@@ -21,10 +20,7 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
     public class GetXrmServiceEndpointRegistrationCommand : XrmCommandBase
     {
         #region Parameters
-
-        [Parameter(Mandatory = false)]
-        public string EndpointName { get; set; }
-
+        
         [Parameter(Mandatory = true)]
         public string MappingFile { get; set; }
 
@@ -40,9 +36,9 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
             {
                 PluginRegistrationHelper pluginRegistrationHelper = new PluginRegistrationHelper(OrganizationService, context, WriteVerbose, WriteWarning);
                 WriteVerbose("PluginRegistrationHelper intiated");
+                //WriteVerbose($"Solution Name: {SolutionName}");
                 WriteVerbose($"Mapping Path: {MappingFile}");
-                WriteVerbose($"Endpoint Name: {EndpointName}");
-                var webHookList = pluginRegistrationHelper.GetServiceEndpoints(string.Empty, EndpointName);
+                var webHookList = pluginRegistrationHelper.GetServiceEndpoints(Guid.Empty);
                 pluginRegistrationHelper.SerializerObjectToFile(MappingFile, webHookList);
             }
 

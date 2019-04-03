@@ -5,7 +5,6 @@ using System.Management.Automation;
 using System.Text;
 using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
-using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 
 namespace Xrm.Framework.CI.PowerShell.Cmdlets
@@ -26,7 +25,7 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
         /// <summary>
         /// <para type="description">The display name of the cloned patched solution.</para>
         /// </summary>
-        [Parameter(Mandatory = false)]
+        [Parameter(Mandatory = true)]
         public string DisplayName { get; set; }
 
         /// <summary>
@@ -50,26 +49,21 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
             base.ProcessRecord();
             base.WriteVerbose("Executing CloneAsSolutionRequest");
             using (var context = new CIContext(OrganizationService))
-            {
-                var solution = (from sol in context.SolutionSet
-                                where sol.UniqueName == ParentSolutionUniqueName
-                                select new Solution { Version = sol.Version, FriendlyName = sol.FriendlyName }).FirstOrDefault();
-                if (solution == null || string.IsNullOrEmpty(solution.Version))
-                {
-                    throw new Exception(string.Format("Parent solution with unique name {0} not found.", ParentSolutionUniqueName));
-                }
-
+            {                
                 if (string.IsNullOrEmpty(VersionNumber))
                 {
+                    var solution = (from sol in context.SolutionSet
+                                    where sol.UniqueName == ParentSolutionUniqueName
+                                    select new Solution { Version = sol.Version }).FirstOrDefault();
+                    if (solution == null || string.IsNullOrEmpty(solution.Version))
+                    {
+                        throw new Exception(string.Format("Parent solution with unique name {0} not found.", ParentSolutionUniqueName));
+                    }
+
                     string[] versions = solution.Version.Split('.');
                     char dot = '.';
                     VersionNumber = string.Concat(versions[0], dot, Convert.ToInt32(versions[1]) + 1, dot, versions[2], dot, versions[3]);
                     base.WriteVerbose(string.Format("New version number {0}", VersionNumber));
-                }
-
-                if (string.IsNullOrEmpty(DisplayName))
-                {
-                    DisplayName = solution.FriendlyName;
                 }
 
                 var cloneAsPatch = new CloneAsSolutionRequest

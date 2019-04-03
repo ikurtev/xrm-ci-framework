@@ -32,11 +32,7 @@ if ($CoreToolsPath)
 }
 
 #Export Solutions
-if ($solutionFile)
-{
-	Write-Verbose "Using provided solution file"
-}
-else
+if ($solutionFile -eq $null)
 {
 	# CI Toolkit
 	$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
