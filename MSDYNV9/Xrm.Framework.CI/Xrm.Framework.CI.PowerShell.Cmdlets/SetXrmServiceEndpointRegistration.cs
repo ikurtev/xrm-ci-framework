@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
+using Xrm.Framework.CI.Common;
+using Xrm.Framework.CI.Common.Entities;
 using Xrm.Framework.CI.PowerShell.Cmdlets.Common;
 using Xrm.Framework.CI.PowerShell.Cmdlets.PluginRegistration;
 
@@ -55,6 +57,10 @@ namespace Xrm.Framework.CI.PowerShell.Cmdlets
                 {   
                     var serviceEndptLst = ReadServiceEndpointMappingFile(MappingFile);
                     pluginRegistrationHelper.UpsertServiceEndpoints(serviceEndptLst, SolutionName, RegistrationType);
+                }
+                else
+                {
+                    WriteError(new ErrorRecord(new ArgumentException("No operation performed. Mapping File not exists."), "FileMissing", ErrorCategory.InvalidArgument, MappingFile));
                 }
             }
 
